@@ -189,10 +189,10 @@ pipe = WanVideoHoloCinePipeline.from_pretrained(
     torch_dtype=torch.bfloat16,
     device=device,
     model_configs=[
-        ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B//Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth", offload_device="cpu"),
+        ModelConfig(path="./checkpoints//models_t5_umt5-xxl-enc-bf16.pth", offload_device="cpu"),
         ModelConfig(path="./checkpoints/HoloCine_dit/sparse/sparse_high_noise.safetensors", offload_device="cpu"),
         ModelConfig(path="./checkpoints/HoloCine_dit/sparse/sparse_low_noise.safetensors",  offload_device="cpu"),
-        ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
+        ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
     ],
 )
 pipe.dit.use_sparse_self_attn=True
