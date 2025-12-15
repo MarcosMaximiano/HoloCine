@@ -217,43 +217,4 @@ run_inference(
     output_path="test_raw_string_output.mp4",
     
     # Choice 2 inputs
-    prompt="[global caption] The scene features a young painter, [character1], with paint-smudged cheeks and intense, focused eyes. Her hair is tied up messily. The setting is a bright, sun-drenched art studio with large windows, canvases, and the smell of oil paint. This scene contains 6 shots. [per shot caption] Medium shot of [character1] standing back from a large canvas, brush in hand, critically observing her work. [shot cut] Close-up of her hand holding the brush, dabbing it thoughtfully onto a palette of vibrant colors. [shot cut] Extreme close-up of her eyes, narrowed in concentration as she studies the canvas. [shot cut] Close-up on the canvas, showing a detailed, textured brushstroke being slowly applied. [shot cut] Medium close-up of [character1]'s face, a small, satisfied smile appears as she finds the right color. [shot cut] Over-the-shoulder shot showing her add a final, delicate highlight to the painting.",
-    
-
-    num_frames=241,
-    shot_cut_frames=[37, 73, 113, 169, 205]
-
-)
-```
-https://github.com/user-attachments/assets/fdc12ff1-cf1b-4250-b7c9-a32e4d65731f
-
-## Examples
-
-We provide several commented-out examples directly within the `HoloCine_inference_full_attention.py` and `HoloCine_inference_sparse_attention.py` script. You can uncomment any of these examples to try them out immediately.
-
-If you want to quickly test the model's stability on your own text prompt and don't want to design it by yourself, you can use LLM like gemini 2.5 pro to generate text prompt based on our format. Based on our test, the model is quite stable on diverse genres of text prompt.
-
-
-
-
-# Citation
-
-If you find this work useful, please consider citing our paper:
-
-```bibtex
-@article{meng2025holocine,
-  title={HoloCine: Holistic Generation of Cinematic Multi-Shot Long Video Narratives},
-  author={Meng, Yihao and Ouyang, Hao and Yu, Yue and Wang, Qiuyu and Wang, Wen and Cheng, Ka Leong and Wang, Hanlin and Li, Yixuan and Chen, Cheng and Zeng, Yanhong and Shen, Yujun and Qu, Huamin},
-  journal={arXiv preprint arXiv:2510.20822},
-  year={2025}
-}
-```
-
-# License
-
-This project is licensed under the CC BY-NC-SA 4.0 ([Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/)).
-
-The code is provided for academic research purposes only.
-
-For any questions, please contact ymengas@connect.ust.hk.
-
+    prompt="[global caption] The scene features a young painter, [character1], with paint-smudged cheeks and intense, focused eyes. Her hair is tied up messily. The setting is a bright, sun-drenched art studio with large windows, canvases, and the smell of oil paint. This scene contains 6 shots. [per shot caption] Medium shot of [character1] standing back from a large canvas, brush in hand, critically observing her work. [shot cut] Close-up of her hand holding the brush, dabbing it thoughtfully onto a palette of vibrant colors. [shot cut] Extreme close-up of her eyes, narrowed in concentration as she studies the canvas. [shot cut] Close-up on quero uma mulher vendendo a marca de roupa vierd 
