@@ -1,0 +1,5 @@
+# This directory should contain:
+# - models_t5_umt5-xxl-enc-bf16.pth
+# - Wan2.1_VAE.pth
+# 
+# Download these files from: https://huggingface.co/Wan-AI/Wan2.2-T2V-A14B
