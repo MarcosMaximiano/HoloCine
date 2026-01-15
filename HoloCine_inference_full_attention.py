@@ -193,7 +193,12 @@ if __name__ == "__main__":
 
     # --- 1. Load Model (Done once) ---
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
-    torch_dtype = torch.bfloat16 if device == 'cuda' else torch.float32
+    if device == 'cuda' and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available on this system.")
+    if device == 'cuda':
+        torch_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    else:
+        torch_dtype = torch.float32
     pipe = WanVideoHoloCinePipeline.from_pretrained(
         torch_dtype=torch_dtype,
         device=device,
@@ -204,7 +209,7 @@ if __name__ == "__main__":
             ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
         ],
     )
-    if device == 'cuda':
+    if device == 'cuda' and torch.cuda.is_available():
         pipe.enable_vram_management()
     pipe.to(device)
 

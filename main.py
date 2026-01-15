@@ -25,7 +25,9 @@ def ensure_checkpoints():
         subprocess.run(["python3", "scripts/download_checkpoints.py", "--yes"], check=True)
     missing = missing_checkpoints()
     if missing:
-        raise FileNotFoundError(f"Missing checkpoint files: {', '.join(missing)}")
+        raise FileNotFoundError(
+            f"Missing checkpoint files after download: {', '.join(missing)}"
+        )
     CHECKPOINTS_READY = True
 
 # Healthcheck endpoint

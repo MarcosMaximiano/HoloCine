@@ -1,11 +1,13 @@
+import argparse
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-ASSUME_YES = "--yes" in sys.argv
-if ASSUME_YES:
-    sys.argv.remove("--yes")
+parser = argparse.ArgumentParser(description="Download required HoloCine checkpoints.")
+parser.add_argument("--yes", action="store_true", help="Automatically confirm all prompts.")
+args, _ = parser.parse_known_args()
+ASSUME_YES = args.yes
 
 def confirm_action(message: str) -> None:
     if ASSUME_YES:
