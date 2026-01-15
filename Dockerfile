@@ -24,4 +24,4 @@ RUN pip install --no-cache-dir flask gunicorn firebase-admin google-cloud-storag
 COPY . .
 
 # Iniciar servidor Flask via Gunicorn
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "main:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "--timeout", "600", "main:app"]
