@@ -1,20 +1,31 @@
-from huggingface_hub import snapshot_download
 import os
+from huggingface_hub import snapshot_download
 
+def ensure_dir(path: str):
+    # Se existe e é arquivo, remove; se é dir, ok; caso contrário, cria
+    if os.path.exists(path) and not os.path.isdir(path):
+        os.remove(path)
+    os.makedirs(path, exist_ok=True)
+
+# Pastas alvo
 WAN_DIR = "checkpoints/Wan2.2-T2V-A14B"
-HOLO_DIR = "checkpoints/HoloCine_dit/full"
+HOLO_FULL_DIR = "checkpoints/HoloCine_dit/full"
 
-os.makedirs(WAN_DIR, exist_ok=True)
-os.makedirs(HOLO_DIR, exist_ok=True)
+# Garantir estrutura
+ensure_dir(WAN_DIR)
+ensure_dir(HOLO_FULL_DIR)
 
-# Wan 2.2 T2V
+# Baixar Wan 2.2 T2V (arquivos necessários)
 snapshot_download(
     repo_id="Wan-AI/Wan2.2-T2V-A14B",
     local_dir=WAN_DIR,
-    allow_patterns=["models_t5_umt5-xxl-enc-bf16.pth", "Wan2.1_VAE.pth"],
+    allow_patterns=[
+        "models_t5_umt5-xxl-enc-bf16.pth",
+        "Wan2.1_VAE.pth",
+    ],
 )
 
-# HoloCine DIT (full)
+# Baixar HoloCine DIT (full)
 snapshot_download(
     repo_id="hlwang06/HoloCine",
     local_dir="checkpoints",
@@ -24,4 +35,4 @@ snapshot_download(
     ],
 )
 
-print("Checkpoints baixados/confirmados em:", WAN_DIR, "e", HOLO_DIR)
+print("Checkpoints prontos em:", WAN_DIR, "e", HOLO_FULL_DIR)
