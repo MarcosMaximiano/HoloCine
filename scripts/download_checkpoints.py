@@ -18,11 +18,13 @@ except ImportError:
 
 def ensure_dir(path: Path) -> Path:
     for parent in path.parents:
-        if parent.exists() and parent.is_file():
-            raise SystemExit(
-                f"Expected '{parent}' to be a directory. Remove or rename the file "
-                f"(e.g. 'rm {parent}') to continue."
-            )
+        if parent.exists():
+            if parent.is_file():
+                raise SystemExit(
+                    f"Expected '{parent}' to be a directory. Remove or rename the file "
+                    f"(e.g. 'rm {parent}') to continue."
+                )
+            break
     if path.exists() and path.is_file():
         path.unlink()
     path.mkdir(parents=True, exist_ok=True)
@@ -33,17 +35,18 @@ def clean_dir(path: Path, expected_files: set[str]) -> None:
     """Remove any files or directories not listed in expected_files."""
     if not path.exists():
         return
-    unexpected = [
-        entry
-        for entry in path.iterdir()
-        if not (entry.is_file() and entry.name in expected_files)
+    unexpected_files = [
+        entry for entry in path.iterdir() if entry.is_file() and entry.name not in expected_files
     ]
-    if unexpected:
-        response = input(
-            f"Remove {len(unexpected)} unexpected item(s) from '{path}'? [y/N] "
-        ).strip().lower()
-        if response not in {"y", "yes"}:
-            raise SystemExit("Cleanup aborted. Remove unexpected files to continue.")
+    unexpected_dirs = [entry for entry in path.iterdir() if entry.is_dir()]
+    unexpected = unexpected_files + unexpected_dirs
+    if not unexpected:
+        return
+    response = input(
+        f"Remove {len(unexpected)} unexpected item(s) from '{path}'? [y/N] "
+    ).strip().lower()
+    if response not in {"y", "yes"}:
+        raise SystemExit("Cleanup aborted. Remove unexpected files to continue.")
     for entry in unexpected:
         if entry.is_dir():
             print(f"Removing unexpected directory: {entry}")
