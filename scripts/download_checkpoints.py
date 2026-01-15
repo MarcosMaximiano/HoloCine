@@ -6,7 +6,7 @@ from pathlib import Path
 try:
     from huggingface_hub import hf_hub_download
 except ImportError:
-    pip_package = "huggingface_hub"
+    pip_package = "huggingface_hub>=0.20.0,<1.0.0"
     pip_command = [sys.executable, "-m", "pip", "install", pip_package]
     pip_display = " ".join(pip_command)
     response = input(
@@ -14,7 +14,7 @@ except ImportError:
         f"'{pip_package}' from PyPI. Run '{pip_display}' now? [y/N] "
     ).strip().lower()
     if response not in {"y", "yes"}:
-        raise SystemExit("Install huggingface_hub to continue.")
+        raise SystemExit(f"Install {pip_package} to continue.")
     subprocess.check_call(pip_command)
     from huggingface_hub import hf_hub_download
 
@@ -22,7 +22,7 @@ def ensure_dir(path: Path) -> Path:
     for parent in path.parents:
         if parent.exists() and parent.is_file():
             raise SystemExit(
-                f"Expected '{parent}' to be a directory. Remove or rename the file "
+                f"Conflicting parent path detected: '{parent}'. Remove or rename the file "
                 f"(e.g. 'rm {parent}') to continue."
             )
     if path.exists() and path.is_file():
@@ -47,7 +47,7 @@ def clean_dir(path: Path, expected_files: set[str], expected_dirs: set[str] | No
     unexpected_list = "\n".join(f"- {entry}" for entry in unexpected)
     response = input(
         f"Remove the following {len(unexpected)} item(s) from '{path}'?\n"
-        f"{unexpected_list}\nProceed? [y/N] "
+        f"{unexpected_list}\n\nProceed? [y/N] "
     ).strip().lower()
     if response not in {"y", "yes"}:
         raise SystemExit("Cleanup aborted. Remove unexpected files to continue.")
@@ -79,6 +79,7 @@ clean_dir(HOLO_FULL_DIR, HOLO_FILES)
 
 # Download Wan 2.2 T2V (required files)
 for filename in sorted(WAN_FILES):
+    print(f"Downloading {filename} to {WAN_DIR}...")
     hf_hub_download(
         repo_id="Wan-AI/Wan2.2-T2V-A14B",
         filename=filename,
@@ -88,6 +89,7 @@ for filename in sorted(WAN_FILES):
 
 # Download HoloCine DIT (full)
 for filename in sorted(HOLO_FILES):
+    print(f"Downloading {filename} to {HOLO_FULL_DIR}...")
     hf_hub_download(
         repo_id="hlwang06/HoloCine",
         filename=f"{HOLO_REPO_DIR}/{filename}",
