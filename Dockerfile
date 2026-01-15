@@ -17,14 +17,18 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Servidor + Hugging Face + demais libs necessárias na API
+# Servidor + Hugging Face + libs da API
 RUN pip install --no-cache-dir flask gunicorn huggingface_hub firebase-admin google-cloud-storage
 
-# Copiar o código do projeto (inclui o script de download)
+# Copiar o código do projeto (inclui script de download)
 COPY . .
 
+# Limpeza preventiva: se houver arquivos com nomes de pasta, remova-os
+RUN rm -rf checkpoints/Wan2.2-T2V-A14B || true && \
+    rm -rf checkpoints/HoloCine_dit || true && \
+    mkdir -p checkpoints/Wan2.2-T2V-A14B checkpoints/HoloCine_dit/full
+
 # Baixar checkpoints do Hugging Face (sem login interativo)
-# Se modelos forem privados, configure a variável de ambiente HF_TOKEN no build/run.
 RUN python scripts/download_checkpoints.py
 
 # Servir Flask via Gunicorn (timeout maior para IA)
