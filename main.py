@@ -13,14 +13,17 @@ CHECKPOINT_FILES = [
     "checkpoints/HoloCine_dit/full/full_low_noise.safetensors",
 ]
 
+def missing_checkpoints():
+    return [path for path in CHECKPOINT_FILES if not os.path.exists(path)]
+
 def ensure_checkpoints():
     global CHECKPOINTS_READY
     if CHECKPOINTS_READY:
         return
-    missing = [path for path in CHECKPOINT_FILES if not os.path.exists(path)]
+    missing = missing_checkpoints()
     if missing:
         subprocess.run(["python3", "scripts/download_checkpoints.py", "--yes"], check=True)
-    missing = [path for path in CHECKPOINT_FILES if not os.path.exists(path)]
+    missing = missing_checkpoints()
     if missing:
         raise FileNotFoundError(f"Missing checkpoint files: {', '.join(missing)}")
     CHECKPOINTS_READY = True

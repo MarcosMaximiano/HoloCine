@@ -14,7 +14,9 @@ def confirm_action(message: str) -> None:
     try:
         response = input(message).strip().lower()
     except EOFError as exc:
-        raise SystemExit("Non-interactive mode detected. Re-run with --yes to proceed.") from exc
+        raise SystemExit(
+            "Non-interactive mode detected. Re-run with --yes to automatically confirm all prompts."
+        ) from exc
     if response not in {"y", "yes"}:
         raise SystemExit("Operation aborted by user.")
 

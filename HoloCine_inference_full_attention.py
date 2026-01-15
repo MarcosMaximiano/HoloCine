@@ -184,37 +184,37 @@ def run_inference(
 #
 # ---------------------------------------------------
 
-# --- 1. Load Model (Done once) ---
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-torch_dtype = torch.bfloat16 if device == 'cuda' else torch.float32
-pipe = WanVideoHoloCinePipeline.from_pretrained(
-    torch_dtype=torch_dtype,
-    device=device,
-    model_configs=[
-        ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth", offload_device="cpu"),
-        ModelConfig(path="./checkpoints/HoloCine_dit/full/full_high_noise.safetensors", offload_device="cpu"),
-        ModelConfig(path="./checkpoints/HoloCine_dit/full/full_low_noise.safetensors",  offload_device="cpu"),
-        ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
-    ],
-)
-if device == 'cuda':
-    pipe.enable_vram_management()
-pipe.to(device)
-
-# --- 2. Define Common Parameters ---
-scene_negative_prompt = "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
-
-
-# ===================================================================
-#                ✨ How to Use ✨
-# ===================================================================
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run HoloCine inference.")
     parser.add_argument("--prompt", type=str, help="Prompt for video generation.")
     parser.add_argument("--output", type=str, default="output.mp4", help="Output video path.")
+    parser.add_argument("--device", choices=["cpu", "cuda"], help="Force device selection.")
     args = parser.parse_args()
 
+    # --- 1. Load Model (Done once) ---
+    device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
+    torch_dtype = torch.bfloat16 if device == 'cuda' else torch.float32
+    pipe = WanVideoHoloCinePipeline.from_pretrained(
+        torch_dtype=torch_dtype,
+        device=device,
+        model_configs=[
+            ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth", offload_device="cpu"),
+            ModelConfig(path="./checkpoints/HoloCine_dit/full/full_high_noise.safetensors", offload_device="cpu"),
+            ModelConfig(path="./checkpoints/HoloCine_dit/full/full_low_noise.safetensors",  offload_device="cpu"),
+            ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
+        ],
+    )
+    if device == 'cuda':
+        pipe.enable_vram_management()
+    pipe.to(device)
+
+    # --- 2. Define Common Parameters ---
+    scene_negative_prompt = "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
+
+
+    # ===================================================================
+    #                ✨ How to Use ✨
+    # ===================================================================
     if args.prompt:
         print("\n--- Running Prompt Input ---")
         run_inference(
@@ -246,19 +246,19 @@ if __name__ == "__main__":
         )
 
 
-# --- Example 2: Call using Raw String Input (Choice 2) ---
-# (Uses your original prompt format)
-print("\n--- Running Example 2 (Raw String Input) ---")
-run_inference(
-    pipe=pipe,
-    negative_prompt=scene_negative_prompt,
-    output_path="video2.mp4",
-    
-    # Choice 2 inputs
-    prompt="[global caption] The scene features a young painter, [character1], with paint-smudged cheeks and intense, focused eyes. Her hair is tied up messily. The setting is a bright, sun-drenched art studio with large windows, canvases, and the smell of oil paint. This scene contains 6 shots. [per shot caption] Medium shot of [character1] standing back from a large canvas, brush in hand, critically observing her work. [shot cut] Close-up of her hand holding the brush, dabbing it thoughtfully onto a palette of vibrant colors. [shot cut] Extreme close-up of her eyes, narrowed in concentration as she studies the canvas. [shot cut] Close-up on the canvas, showing a detailed, textured brushstroke being slowly applied. [shot cut] Medium close-up of [character1]'s face, a small, satisfied smile appears as she finds the right color. [shot cut] Over-the-shoulder shot showing her add a final, delicate highlight to the painting.",
-    num_frames=241,  
-    shot_cut_frames=[37, 73, 113, 169, 205]
-)
+        # --- Example 2: Call using Raw String Input (Choice 2) ---
+        # (Uses your original prompt format)
+        print("\n--- Running Example 2 (Raw String Input) ---")
+        run_inference(
+            pipe=pipe,
+            negative_prompt=scene_negative_prompt,
+            output_path="video2.mp4",
+            
+            # Choice 2 inputs
+            prompt="[global caption] The scene features a young painter, [character1], with paint-smudged cheeks and intense, focused eyes. Her hair is tied up messily. The setting is a bright, sun-drenched art studio with large windows, canvases, and the smell of oil paint. This scene contains 6 shots. [per shot caption] Medium shot of [character1] standing back from a large canvas, brush in hand, critically observing her work. [shot cut] Close-up of her hand holding the brush, dabbing it thoughtfully onto a palette of vibrant colors. [shot cut] Extreme close-up of her eyes, narrowed in concentration as she studies the canvas. [shot cut] Close-up on the canvas, showing a detailed, textured brushstroke being slowly applied. [shot cut] Medium close-up of [character1]'s face, a small, satisfied smile appears as she finds the right color. [shot cut] Over-the-shoulder shot showing her add a final, delicate highlight to the painting.",
+            num_frames=241,  
+            shot_cut_frames=[37, 73, 113, 169, 205]
+        )
 
 
 # # we provide more samples for test, you can uncomment them and have a try.
@@ -298,4 +298,3 @@ run_inference(
 #     num_frames=241,  
 #     shot_cut_frames=[49, 93, 137, 189],
 # )
-
