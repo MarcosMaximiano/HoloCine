@@ -6,10 +6,12 @@ from pathlib import Path
 try:
     from huggingface_hub import hf_hub_download
 except ImportError:
-    pip_command = [sys.executable, "-m", "pip", "install", "huggingface_hub"]
+    pip_package = "huggingface_hub"
+    pip_command = [sys.executable, "-m", "pip", "install", pip_package]
     pip_display = " ".join(pip_command)
     response = input(
-        f"huggingface_hub is required. Run '{pip_display}' now? [y/N] "
+        "This will install the latest version of "
+        f"'{pip_package}' from PyPI. Run '{pip_display}' now? [y/N] "
     ).strip().lower()
     if response not in {"y", "yes"}:
         raise SystemExit("Install huggingface_hub to continue.")
@@ -29,20 +31,23 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
-def clean_dir(path: Path, expected_files: set[str]) -> None:
+def clean_dir(path: Path, expected_files: set[str], expected_dirs: set[str] | None = None) -> None:
     """Remove any files or directories not listed in expected_files."""
     if not path.exists():
         return
+    expected_dirs = expected_dirs or set()
     entries = list(path.iterdir())
     unexpected_files = [
         entry for entry in entries if entry.is_file() and entry.name not in expected_files
     ]
-    unexpected_dirs = [entry for entry in entries if entry.is_dir()]
+    unexpected_dirs = [entry for entry in entries if entry.is_dir() and entry.name not in expected_dirs]
     unexpected = unexpected_files + unexpected_dirs
     if not unexpected:
         return
+    unexpected_list = "\n".join(f"- {entry}" for entry in unexpected)
     response = input(
-        f"Remove {len(unexpected)} unexpected item(s) from '{path}'? [y/N] "
+        f"Remove the following {len(unexpected)} item(s) from '{path}'?\n"
+        f"{unexpected_list}\nProceed? [y/N] "
     ).strip().lower()
     if response not in {"y", "yes"}:
         raise SystemExit("Cleanup aborted. Remove unexpected files to continue.")
@@ -66,6 +71,7 @@ HOLO_FILES = {
     "full_high_noise.safetensors",
     "full_low_noise.safetensors",
 }
+HOLO_REPO_DIR = "HoloCine_dit/full"
 
 # Ensure clean directories
 clean_dir(WAN_DIR, WAN_FILES)
@@ -84,7 +90,7 @@ for filename in sorted(WAN_FILES):
 for filename in sorted(HOLO_FILES):
     hf_hub_download(
         repo_id="hlwang06/HoloCine",
-        filename=f"HoloCine_dit/full/{filename}",
+        filename=f"{HOLO_REPO_DIR}/{filename}",
         local_dir="checkpoints",
         local_dir_use_symlinks=False,
     )
