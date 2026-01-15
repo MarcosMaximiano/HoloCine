@@ -16,18 +16,22 @@ def ensure_dir(path: Path) -> Path:
     if path.exists() and path.is_file():
         path.unlink()
     if path.parent.exists() and path.parent.is_file():
-        path.parent.unlink()
+        raise SystemExit(
+            f"Expected '{path.parent}' to be a directory. Remove or rename the file to continue."
+        )
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def clean_dir(path: Path, expected_files: set[str]) -> None:
+    """Remove any files or directories not listed in expected_files."""
     if not path.exists():
         return
     for entry in path.iterdir():
         if entry.is_file() and entry.name in expected_files:
             continue
         if entry.is_dir():
+            print(f"Removing unexpected directory: {entry}")
             shutil.rmtree(entry)
         else:
             entry.unlink()
