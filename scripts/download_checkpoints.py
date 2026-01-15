@@ -6,13 +6,13 @@ from pathlib import Path
 try:
     from huggingface_hub import hf_hub_download
 except ImportError:
-    pip_command = [sys.executable, "-m", "pip", "install", "huggingface-hub"]
+    pip_command = [sys.executable, "-m", "pip", "install", "huggingface_hub"]
     pip_display = " ".join(pip_command)
     response = input(
         f"huggingface_hub is required. Run '{pip_display}' now? [y/N] "
     ).strip().lower()
     if response not in {"y", "yes"}:
-        raise SystemExit("Install huggingface-hub to continue.")
+        raise SystemExit("Install huggingface_hub to continue.")
     subprocess.check_call(pip_command)
     from huggingface_hub import hf_hub_download
 
@@ -33,14 +33,11 @@ def clean_dir(path: Path, expected_files: set[str]) -> None:
     """Remove any files or directories not listed in expected_files."""
     if not path.exists():
         return
-    unexpected_files = []
-    unexpected_dirs = []
-    for entry in path.iterdir():
-        if entry.is_file():
-            if entry.name not in expected_files:
-                unexpected_files.append(entry)
-        else:
-            unexpected_dirs.append(entry)
+    entries = list(path.iterdir())
+    unexpected_files = [
+        entry for entry in entries if entry.is_file() and entry.name not in expected_files
+    ]
+    unexpected_dirs = [entry for entry in entries if entry.is_dir()]
     unexpected = unexpected_files + unexpected_dirs
     if not unexpected:
         return
@@ -59,8 +56,7 @@ def clean_dir(path: Path, expected_files: set[str]) -> None:
 
 # Target folders
 WAN_DIR = ensure_dir(Path("checkpoints/Wan2.2-T2V-A14B"))
-HOLO_DIR = ensure_dir(Path("checkpoints/HoloCine_dit"))
-HOLO_FULL_DIR = ensure_dir(HOLO_DIR / "full")
+HOLO_FULL_DIR = ensure_dir(Path("checkpoints/HoloCine_dit/full"))
 
 WAN_FILES = {
     "models_t5_umt5-xxl-enc-bf16.pth",
