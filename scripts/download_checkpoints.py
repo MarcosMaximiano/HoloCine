@@ -6,10 +6,14 @@ from pathlib import Path
 try:
     from huggingface_hub import hf_hub_download
 except ImportError:
-    response = input("huggingface_hub is required. Install now? [y/N] ").strip().lower()
+    pip_command = [sys.executable, "-m", "pip", "install", "huggingface_hub"]
+    pip_display = " ".join(pip_command)
+    response = input(
+        f"huggingface_hub is required. Run '{pip_display}' now? [y/N] "
+    ).strip().lower()
     if response not in {"y", "yes"}:
         raise SystemExit("Install huggingface_hub to continue.")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "huggingface_hub"])
+    subprocess.check_call(pip_command)
     from huggingface_hub import hf_hub_download
 
 def ensure_dir(path: Path) -> Path:
@@ -17,7 +21,8 @@ def ensure_dir(path: Path) -> Path:
         path.unlink()
     if path.parent.exists() and path.parent.is_file():
         raise SystemExit(
-            f"Expected '{path.parent}' to be a directory. Remove or rename the file to continue."
+            f"Expected '{path.parent}' to be a directory. Remove or rename the file "
+            f"(e.g. 'rm {path.parent}') to continue."
         )
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -34,6 +39,7 @@ def clean_dir(path: Path, expected_files: set[str]) -> None:
             print(f"Removing unexpected directory: {entry}")
             shutil.rmtree(entry)
         else:
+            print(f"Removing unexpected file: {entry}")
             entry.unlink()
 
 # Target folders
