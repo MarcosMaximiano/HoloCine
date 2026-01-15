@@ -1,3 +1,4 @@
+import argparse
 import torch
 import math
 from diffsynth import save_video
@@ -184,9 +185,10 @@ def run_inference(
 # ---------------------------------------------------
 
 # --- 1. Load Model (Done once) ---
-device = 'cuda'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+torch_dtype = torch.bfloat16 if device == 'cuda' else torch.float32
 pipe = WanVideoHoloCinePipeline.from_pretrained(
-    torch_dtype=torch.bfloat16,
+    torch_dtype=torch_dtype,
     device=device,
     model_configs=[
         ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth", offload_device="cpu"),
@@ -195,7 +197,8 @@ pipe = WanVideoHoloCinePipeline.from_pretrained(
         ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
     ],
 )
-pipe.enable_vram_management()
+if device == 'cuda':
+    pipe.enable_vram_management()
 pipe.to(device)
 
 # --- 2. Define Common Parameters ---
@@ -206,26 +209,41 @@ scene_negative_prompt = "色调艳丽，过曝，静态，细节模糊不清，�
 #                ✨ How to Use ✨
 # ===================================================================
 
-# --- Example 1: Call using Structured Input (Choice 1) ---
-# (Auto-calculates shot cuts)
-print("\n--- Running Example 1 (Structured Input) ---")
-run_inference(
-    pipe=pipe,
-    negative_prompt=scene_negative_prompt,
-    output_path="video1.mp4",
-    
-    # Choice 1 inputs
-    global_caption="The scene is set in a lavish, 1920s Art Deco ballroom during a masquerade party. [character1] is a mysterious woman with a sleek bob, wearing a sequined silver dress and an ornate feather mask. [character2] is a dapper gentleman in a black tuxedo, his face half-hidden by a simple black domino mask. The environment is filled with champagne fountains, a live jazz band, and dancing couples in extravagant costumes. This scene contains 5 shots.",
-    shot_captions=[
-        "Medium shot of [character1] standing by a pillar, observing the crowd, a champagne flute in her hand.",
-        "Close-up of [character2] watching her from across the room, a look of intrigue on his visible features.",
-        "Medium shot as [character2] navigates the crowd and approaches [character1], offering a polite bow.",
-        "Close-up on [character1]'s eyes through her mask, as they crinkle in a subtle, amused smile.",
-        "A stylish medium two-shot of them standing together, the swirling party out of focus behind them, as they begin to converse."
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run HoloCine inference.")
+    parser.add_argument("--prompt", type=str, help="Prompt for video generation.")
+    parser.add_argument("--output", type=str, default="output.mp4", help="Output video path.")
+    args = parser.parse_args()
 
-    ],
-    num_frames=241
-)
+    if args.prompt:
+        print("\n--- Running Prompt Input ---")
+        run_inference(
+            pipe=pipe,
+            negative_prompt=scene_negative_prompt,
+            output_path=args.output,
+            prompt=args.prompt,
+        )
+    else:
+        # --- Example 1: Call using Structured Input (Choice 1) ---
+        # (Auto-calculates shot cuts)
+        print("\n--- Running Example 1 (Structured Input) ---")
+        run_inference(
+            pipe=pipe,
+            negative_prompt=scene_negative_prompt,
+            output_path="video1.mp4",
+            
+            # Choice 1 inputs
+            global_caption="The scene is set in a lavish, 1920s Art Deco ballroom during a masquerade party. [character1] is a mysterious woman with a sleek bob, wearing a sequined silver dress and an ornate feather mask. [character2] is a dapper gentleman in a black tuxedo, his face half-hidden by a simple black domino mask. The environment is filled with champagne fountains, a live jazz band, and dancing couples in extravagant costumes. This scene contains 5 shots.",
+            shot_captions=[
+                "Medium shot of [character1] standing by a pillar, observing the crowd, a champagne flute in her hand.",
+                "Close-up of [character2] watching her from across the room, a look of intrigue on his visible features.",
+                "Medium shot as [character2] navigates the crowd and approaches [character1], offering a polite bow.",
+                "Close-up on [character1]'s eyes through her mask, as they crinkle in a subtle, amused smile.",
+                "A stylish medium two-shot of them standing together, the swirling party out of focus behind them, as they begin to converse."
+
+            ],
+            num_frames=241
+        )
 
 
 # --- Example 2: Call using Raw String Input (Choice 2) ---
@@ -280,5 +298,4 @@ run_inference(
 #     num_frames=241,  
 #     shot_cut_frames=[49, 93, 137, 189],
 # )
-
 

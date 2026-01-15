@@ -29,7 +29,7 @@ RUN rm -rf checkpoints/Wan2.2-T2V-A14B || true && \
     mkdir -p checkpoints/Wan2.2-T2V-A14B checkpoints/HoloCine_dit/full
 
 # Baixar checkpoints do Hugging Face (sem login interativo)
-RUN python scripts/download_checkpoints.py
+RUN python scripts/download_checkpoints.py --yes
 
 # Servir Flask via Gunicorn (timeout maior para IA)
 CMD ["gunicorn", "-b", "0.0.0.0:8080", "--timeout", "600", "main:app"]

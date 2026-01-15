@@ -5,6 +5,25 @@ import firebase_admin
 from firebase_admin import storage
 
 app = Flask(__name__)
+CHECKPOINTS_READY = False
+CHECKPOINT_FILES = [
+    "checkpoints/Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth",
+    "checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth",
+    "checkpoints/HoloCine_dit/full/full_high_noise.safetensors",
+    "checkpoints/HoloCine_dit/full/full_low_noise.safetensors",
+]
+
+def ensure_checkpoints():
+    global CHECKPOINTS_READY
+    if CHECKPOINTS_READY:
+        return
+    missing = [path for path in CHECKPOINT_FILES if not os.path.exists(path)]
+    if missing:
+        subprocess.run(["python3", "scripts/download_checkpoints.py", "--yes"], check=True)
+    missing = [path for path in CHECKPOINT_FILES if not os.path.exists(path)]
+    if missing:
+        raise FileNotFoundError(f"Missing checkpoint files: {', '.join(missing)}")
+    CHECKPOINTS_READY = True
 
 # Healthcheck endpoint
 @app.route("/healthz", methods=["GET"])
@@ -20,6 +39,7 @@ def generate_video():
         return jsonify({"error": "prompt é obrigatório"}), 400
 
     try:
+        ensure_checkpoints()
         output_file = "output.mp4"
         cmd = [
             "python3", "HoloCine_inference_full_attention.py",

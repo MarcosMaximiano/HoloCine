@@ -3,18 +3,31 @@ import subprocess
 import sys
 from pathlib import Path
 
+ASSUME_YES = "--yes" in sys.argv
+if ASSUME_YES:
+    sys.argv.remove("--yes")
+
+def confirm_action(message: str) -> None:
+    if ASSUME_YES:
+        print(f"{message}\nAuto-confirmed (--yes).")
+        return
+    try:
+        response = input(message).strip().lower()
+    except EOFError as exc:
+        raise SystemExit("Non-interactive mode detected. Re-run with --yes to proceed.") from exc
+    if response not in {"y", "yes"}:
+        raise SystemExit("Operation aborted by user.")
+
 try:
     from huggingface_hub import hf_hub_download
 except ImportError:
     pip_package = "huggingface_hub>=0.20.0,<1.0.0"
     pip_command = [sys.executable, "-m", "pip", "install", pip_package]
     pip_display = " ".join(pip_command)
-    response = input(
+    confirm_action(
         "This will install the latest version of "
         f"'{pip_package}' from PyPI. Run '{pip_display}' now? [y/N] "
-    ).strip().lower()
-    if response not in {"y", "yes"}:
-        raise SystemExit(f"Install {pip_package} to continue.")
+    )
     subprocess.check_call(pip_command)
     from huggingface_hub import hf_hub_download
 
@@ -32,7 +45,7 @@ def ensure_dir(path: Path) -> Path:
 
 
 def clean_dir(path: Path, expected_files: set[str], expected_dirs: set[str] | None = None) -> None:
-    """Remove any files or directories not listed in expected_files."""
+    """Remove any files or directories not listed in expected_files/expected_dirs."""
     if not path.exists():
         return
     expected_dirs = expected_dirs or set()
@@ -45,12 +58,10 @@ def clean_dir(path: Path, expected_files: set[str], expected_dirs: set[str] | No
     if not unexpected:
         return
     unexpected_list = "\n".join(f"- {entry}" for entry in unexpected)
-    response = input(
+    confirm_action(
         f"Remove the following {len(unexpected)} item(s) from '{path}'?\n"
         f"{unexpected_list}\n\nProceed? [y/N] "
-    ).strip().lower()
-    if response not in {"y", "yes"}:
-        raise SystemExit("Cleanup aborted. Remove unexpected files to continue.")
+    )
     for entry in unexpected:
         if entry.is_dir():
             print(f"Removing unexpected directory: {entry}")
