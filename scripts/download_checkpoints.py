@@ -18,13 +18,11 @@ except ImportError:
 
 def ensure_dir(path: Path) -> Path:
     for parent in path.parents:
-        if parent.exists():
-            if parent.is_file():
-                raise SystemExit(
-                    f"Expected '{parent}' to be a directory. Remove or rename the file "
-                    f"(e.g. 'rm {parent}') to continue."
-                )
-            break
+        if parent.exists() and parent.is_file():
+            raise SystemExit(
+                f"Expected '{parent}' to be a directory. Remove or rename the file "
+                f"(e.g. 'rm {parent}') to continue."
+            )
     if path.exists() and path.is_file():
         path.unlink()
     path.mkdir(parents=True, exist_ok=True)
@@ -35,10 +33,14 @@ def clean_dir(path: Path, expected_files: set[str]) -> None:
     """Remove any files or directories not listed in expected_files."""
     if not path.exists():
         return
-    unexpected_files = [
-        entry for entry in path.iterdir() if entry.is_file() and entry.name not in expected_files
-    ]
-    unexpected_dirs = [entry for entry in path.iterdir() if entry.is_dir()]
+    unexpected_files = []
+    unexpected_dirs = []
+    for entry in path.iterdir():
+        if entry.is_file():
+            if entry.name not in expected_files:
+                unexpected_files.append(entry)
+        else:
+            unexpected_dirs.append(entry)
     unexpected = unexpected_files + unexpected_dirs
     if not unexpected:
         return
