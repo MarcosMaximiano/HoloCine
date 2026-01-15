@@ -1,4 +1,4 @@
-# Imagem base leve de Python
+# Imagem base leve de Python (CPU)
 FROM python:3.10-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -7,34 +7,37 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Dependências do SO (ffmpeg necessário para vídeo)
+# Dependências do SO
 RUN apt-get update && apt-get install -y \
     git \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar dependências do projeto
+# Dependências Python do projeto
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Instalar Flask/Gunicorn/Firebase/GCS/HuggingFace
-RUN pip install --no-cache-dir flask gunicorn firebase-admin google-cloud-storage huggingface_hub
+# Servidor + HF hub
+RUN pip install --no-cache-dir flask gunicorn huggingface_hub firebase-admin google-cloud-storage
 
-# Copiar todo o código do projeto
+# Copie o seu código
 COPY . .
 
-# Baixar checkpoints do Hugging Face durante o build da imagem
+# (Opcional) use variável de ambiente HF_TOKEN no Cloud Build/Run se precisar de modelos privados
+# ARG HF_TOKEN
+# ENV HUGGINGFACE_HUB_TOKEN=${HF_TOKEN}
+
+# Baixar checkpoints necessários (sem interação)
 RUN python - <<EOF
 from huggingface_hub import snapshot_download
 import os
-
 os.makedirs("checkpoints/Wan2.2-T2V-A14B", exist_ok=True)
 os.makedirs("checkpoints/HoloCine_dit/full", exist_ok=True)
 
 snapshot_download(
     repo_id="Wan-AI/Wan2.2-T2V-A14B",
     local_dir="checkpoints/Wan2.2-T2V-A14B",
-    allow_patterns=["models_t5_umt5-xxl-enc-bf16.pth", "Wan2.1_VAE.pth"]
+    allow_patterns=["models_t5_umt5-xxl-enc-bf16.pth","Wan2.1_VAE.pth"]
 )
 snapshot_download(
     repo_id="hlwang06/HoloCine",
@@ -46,5 +49,5 @@ snapshot_download(
 )
 EOF
 
-# Iniciar o servidor Flask via Gunicorn com timeout maior para IA
+# Servir Flask via Gunicorn com timeout maior (IA é lenta)
 CMD ["gunicorn", "-b", "0.0.0.0:8080", "--timeout", "600", "main:app"]
