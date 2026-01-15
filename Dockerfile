@@ -24,7 +24,7 @@ RUN pip install --no-cache-dir flask gunicorn firebase-admin google-cloud-storag
 COPY . .
 
 # Baixar checkpoints do Hugging Face durante o build da imagem
-RUN python - <<'PYCODE'
+RUN python - <<EOF
 from huggingface_hub import snapshot_download
 import os
 
@@ -44,7 +44,7 @@ snapshot_download(
         "HoloCine_dit/full/full_low_noise.safetensors"
     ]
 )
-PYCODE
+EOF
 
 # Iniciar o servidor Flask via Gunicorn com timeout maior para IA
 CMD ["gunicorn", "-b", "0.0.0.0:8080", "--timeout", "600", "main:app"]
