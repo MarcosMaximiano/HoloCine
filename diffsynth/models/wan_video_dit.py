@@ -38,6 +38,12 @@ except:
     except Exception as e:
         flash_attn_varlen_func = None
 
+def validate_shot_latent_indices(cuts, total: int):
+    cuts = list(cuts)
+    if not cuts or cuts[0] != 0 or cuts[-1] != total:
+        raise ValueError(f"shot_latent_indices must start with 0 and end with {total}")
+    return cuts
+
 # def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads: int, compatibility_mode=False):
 #     if compatibility_mode:
 #         q = rearrange(q, "b s (n d) -> b n s d", n=num_heads)
@@ -74,7 +80,6 @@ except:
 #     return x
 
 def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads: int, compatibility_mode=False,attn_mask=None,shot_latent_indices=None):
-
     if attn_mask is not None:
 
         q = rearrange(q, "b s (n d) -> b n s d", n=num_heads)
@@ -86,8 +91,7 @@ def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads
         if shot_latent_indices is not None:
             outputs = []
             for bi, cuts in enumerate(shot_latent_indices):
-                cuts = list(cuts)
-                assert cuts[0] == 0 and cuts[-1] == q.shape[1], "shot_latent_indices must start with 0 and end with s"
+                cuts = validate_shot_latent_indices(cuts, q.shape[1])
                 shot_outputs = []
                 for a, bnd in zip(cuts[:-1], cuts[1:]):
                     q_seg = rearrange(q[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
@@ -239,8 +243,7 @@ def attention_per_batch_with_shots(
 
     for bi in range(b):
 
-        cuts = list(shot_latent_indices[bi])
-        assert cuts[0] == 0 and cuts[-1] == s_tot, "shot_latent_indices must start with 0 and end with s_tot"
+        cuts = validate_shot_latent_indices(shot_latent_indices[bi], s_tot)
 
         Q_shots, K_shots, V_shots = [], [], []
         N_list = []
