@@ -84,13 +84,20 @@ def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads
         x = rearrange(x, "b n s d -> b s (n d)", n=num_heads)
     else:
         if shot_latent_indices is not None:
-        
-            q = rearrange(q, "b s (n d) -> b n s d", n=num_heads)
-            k = rearrange(k, "b s (n d) -> b n s d", n=num_heads)
-            v = rearrange(v, "b s (n d) -> b n s d", n=num_heads)
-           
-            x = F.scaled_dot_product_attention(q, k, v)
-            x = rearrange(x, "b n s d -> b s (n d)", n=num_heads)
+            outputs = []
+            for bi, cuts in enumerate(shot_latent_indices):
+                cuts = list(cuts)
+                assert cuts[0] == 0 and cuts[-1] == q.shape[1], "shot_latent_indices must start with 0 and end with s"
+                shot_outputs = []
+                for a, bnd in zip(cuts[:-1], cuts[1:]):
+                    q_seg = rearrange(q[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+                    k_seg = rearrange(k[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+                    v_seg = rearrange(v[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+                    x_seg = F.scaled_dot_product_attention(q_seg, k_seg, v_seg)
+                    x_seg = rearrange(x_seg, "b n s d -> b s (n d)", n=num_heads)
+                    shot_outputs.append(x_seg[0])
+                outputs.append(torch.cat(shot_outputs, dim=0))
+            x = torch.stack(outputs, dim=0)
         elif compatibility_mode:
             q = rearrange(q, "b s (n d) -> b n s d", n=num_heads)
             k = rearrange(k, "b s (n d) -> b n s d", n=num_heads)
