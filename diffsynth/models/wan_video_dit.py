@@ -204,15 +204,14 @@ def attention_per_batch_with_shots(
     dtype = q.dtype
     device = q.device
 
+    if flash_attn_varlen_func is None:
+        return flash_attention(q=q, k=k, v=v, num_heads=num_heads, compatibility_mode=True)
 
     q = rearrange(q, "b s (n d) -> b n s d", n=num_heads).contiguous()
     k = rearrange(k, "b s (n d) -> b n s d", n=num_heads).contiguous()
     v = rearrange(v, "b s (n d) -> b n s d", n=num_heads).contiguous()
 
     outputs = []
-
-    if flash_attn_varlen_func is None:
-        raise RuntimeError("flash_attn_varlen_func not available. Please install flash-attn v2+.")
 
     for bi in range(b):
 
