@@ -191,12 +191,20 @@ if __name__ == "__main__":
     parser.add_argument("--device", choices=["cpu", "cuda"], help="Force device selection.")
     args = parser.parse_args()
 
+    def cuda_supports_bf16() -> bool:
+        if not torch.cuda.is_available():
+            return False
+        if hasattr(torch.cuda, "is_bf16_supported"):
+            return torch.cuda.is_bf16_supported()
+        major, _ = torch.cuda.get_device_capability()
+        return major >= 8
+
     # --- 1. Load Model (Done once) ---
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
     if device == 'cuda' and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested but is not available on this system.")
     if device == 'cuda':
-        torch_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        torch_dtype = torch.bfloat16 if cuda_supports_bf16() else torch.float16
     else:
         torch_dtype = torch.float32
     pipe = WanVideoHoloCinePipeline.from_pretrained(
@@ -209,7 +217,7 @@ if __name__ == "__main__":
             ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
         ],
     )
-    if device == 'cuda' and torch.cuda.is_available():
+    if device == 'cuda':
         pipe.enable_vram_management()
     pipe.to(device)
 

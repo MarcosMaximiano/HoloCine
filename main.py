@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import storage
@@ -22,7 +23,7 @@ def ensure_checkpoints():
         return
     missing = missing_checkpoints()
     if missing:
-        subprocess.run(["python3", "scripts/download_checkpoints.py", "--yes"], check=True)
+        subprocess.run([sys.executable, "scripts/download_checkpoints.py", "--yes"], check=True)
     missing = missing_checkpoints()
     if missing:
         raise FileNotFoundError(
@@ -47,7 +48,7 @@ def generate_video():
         ensure_checkpoints()
         output_file = "output.mp4"
         cmd = [
-            "python3", "HoloCine_inference_full_attention.py",
+            sys.executable, "HoloCine_inference_full_attention.py",
             "--prompt", prompt,
             "--output", output_file
         ]
