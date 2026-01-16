@@ -3,6 +3,8 @@ from safetensors import safe_open
 from contextlib import contextmanager
 import hashlib
 
+WEIGHTS_ONLY_SUPPORTED = "weights_only" in inspect.signature(torch.load).parameters
+
 @contextmanager
 def init_weights_on_device(device = torch.device("meta"), include_buffers :bool = False):
     
@@ -80,21 +82,24 @@ def load_state_dict_from_safetensors(file_path, torch_dtype=None, device="cpu"):
 
 
 def load_state_dict_from_bin(file_path, torch_dtype=None, device="cpu"):
-    weights_only_supported = "weights_only" in inspect.signature(torch.load).parameters
     try:
-        if weights_only_supported:
+        if WEIGHTS_ONLY_SUPPORTED:
             state_dict = torch.load(file_path, map_location=device, weights_only=True)
         else:
             state_dict = torch.load(file_path, map_location=device)
     except (pickle.UnpicklingError, RuntimeError) as exc:
-        if weights_only_supported:
-            state_dict = torch.load(file_path, map_location=device)
+        if WEIGHTS_ONLY_SUPPORTED:
+            state_dict = torch.load(file_path, map_location=device, weights_only=False)
         else:
             raise exc
     if isinstance(state_dict, dict):
-        for wrapper_key in ("state_dict", "model_state_dict", "model"):
-            if isinstance(state_dict.get(wrapper_key), dict):
-                state_dict = state_dict[wrapper_key]
+        wrapper_keys = ("state_dict", "model_state_dict", "model", "checkpoint")
+        while True:
+            for wrapper_key in wrapper_keys:
+                if isinstance(state_dict.get(wrapper_key), dict):
+                    state_dict = state_dict[wrapper_key]
+                    break
+            else:
                 break
     if torch_dtype is not None:
         for i in state_dict:
