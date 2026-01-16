@@ -106,15 +106,11 @@ def load_state_dict_from_bin(file_path, torch_dtype=None, device="cpu"):
             state_dict = torch.load(file_path, map_location=device, weights_only=True)
         else:
             state_dict = torch.load(file_path, map_location=device)
-    except (pickle.UnpicklingError, RuntimeError) as exc:
-        fallback_needed = WEIGHTS_ONLY_SUPPORTED and (
-            isinstance(exc, pickle.UnpicklingError)
-            or (isinstance(exc, RuntimeError) and "weights_only" in str(exc).lower())
-        )
-        if fallback_needed:
+    except (pickle.UnpicklingError, RuntimeError):
+        if WEIGHTS_ONLY_SUPPORTED:
             state_dict = torch.load(file_path, map_location=device, weights_only=False)
         else:
-            raise exc
+            raise
     state_dict = unwrap_state_dict(state_dict)
     if torch_dtype is not None:
         for i in state_dict:
