@@ -205,7 +205,25 @@ def attention_per_batch_with_shots(
     device = q.device
 
     if flash_attn_varlen_func is None:
-        return flash_attention(q=q, k=k, v=v, num_heads=num_heads, compatibility_mode=True)
+        outputs = []
+        for bi in range(b):
+            cuts = list(shot_latent_indices[bi])
+            assert cuts[0] == 0 and cuts[-1] == s_tot, "shot_latent_indices must start with 0 and end with s_tot"
+            shot_outputs = []
+            for a, bnd in zip(cuts[:-1], cuts[1:]):
+                q_seg = q[bi:bi + 1, a:bnd, :]
+                k_seg = k[bi:bi + 1, a:bnd, :]
+                v_seg = v[bi:bi + 1, a:bnd, :]
+                out_seg = flash_attention(
+                    q=q_seg,
+                    k=k_seg,
+                    v=v_seg,
+                    num_heads=num_heads,
+                    compatibility_mode=True,
+                )
+                shot_outputs.append(out_seg[0])
+            outputs.append(torch.cat(shot_outputs, dim=0))
+        return torch.stack(outputs, dim=0)
 
     q = rearrange(q, "b s (n d) -> b n s d", n=num_heads).contiguous()
     k = rearrange(k, "b s (n d) -> b n s d", n=num_heads).contiguous()
