@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from typing import Tuple, Optional
+from typing import List, Optional, Sequence, Tuple
 from einops import rearrange
 from .utils import hash_state_dict_keys
 from .wan_video_camera_controller import SimpleAdapter
@@ -24,8 +24,6 @@ try:
 except ModuleNotFoundError:
     SAGE_ATTN_AVAILABLE = False
 
-from einops import rearrange
-from typing import List, Sequence, Optional
 print("FLASH_ATTN_3_AVAILABLE ",FLASH_ATTN_3_AVAILABLE)
 print("FLASH_ATTN_2_AVAILABLE",FLASH_ATTN_2_AVAILABLE)
 try:
@@ -38,7 +36,7 @@ except:
     except Exception as e:
         flash_attn_varlen_func = None
 
-def validate_shot_latent_indices(cuts, total: int):
+def validate_shot_latent_indices(cuts: Sequence[int], total: int):
     """Normalize and validate shot_latent_indices against the expected total length."""
     cuts = list(cuts)
     if not cuts or cuts[0] != 0 or cuts[-1] != total:
