@@ -1,4 +1,4 @@
-import torch, os
+import torch, os, inspect, pickle
 from safetensors import safe_open
 from contextlib import contextmanager
 import hashlib
@@ -80,12 +80,22 @@ def load_state_dict_from_safetensors(file_path, torch_dtype=None, device="cpu"):
 
 
 def load_state_dict_from_bin(file_path, torch_dtype=None, device="cpu"):
+    weights_only_supported = "weights_only" in inspect.signature(torch.load).parameters
     try:
-        state_dict = torch.load(file_path, map_location=device, weights_only=True)
-    except (TypeError, RuntimeError):
-        state_dict = torch.load(file_path, map_location=device)
-    if isinstance(state_dict, dict) and isinstance(state_dict.get("state_dict"), dict):
-        state_dict = state_dict["state_dict"]
+        if weights_only_supported:
+            state_dict = torch.load(file_path, map_location=device, weights_only=True)
+        else:
+            state_dict = torch.load(file_path, map_location=device)
+    except (pickle.UnpicklingError, RuntimeError) as exc:
+        if weights_only_supported:
+            state_dict = torch.load(file_path, map_location=device)
+        else:
+            raise exc
+    if isinstance(state_dict, dict):
+        for wrapper_key in ("state_dict", "model_state_dict", "model"):
+            if isinstance(state_dict.get(wrapper_key), dict):
+                state_dict = state_dict[wrapper_key]
+                break
     if torch_dtype is not None:
         for i in state_dict:
             if isinstance(state_dict[i], torch.Tensor):
