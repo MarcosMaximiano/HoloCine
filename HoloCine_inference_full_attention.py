@@ -62,6 +62,14 @@ def prepare_multishot_inputs(
         "num_frames": processed_total_frames
     }
 
+def cuda_supports_bf16() -> bool:
+    if not torch.cuda.is_available():
+        return False
+    if hasattr(torch.cuda, "is_bf16_supported"):
+        return torch.cuda.is_bf16_supported()
+    major, _ = torch.cuda.get_device_capability()
+    return major >= 8
+
 # ---------------------------------------------------
 # 
 #           ✨ Main Inference Wrapper ✨
@@ -191,17 +199,9 @@ if __name__ == "__main__":
     parser.add_argument("--device", choices=["cpu", "cuda"], help="Force device selection.")
     args = parser.parse_args()
 
-    def cuda_supports_bf16() -> bool:
-        if not torch.cuda.is_available():
-            return False
-        if hasattr(torch.cuda, "is_bf16_supported"):
-            return torch.cuda.is_bf16_supported()
-        major, _ = torch.cuda.get_device_capability()
-        return major >= 8
-
     # --- 1. Load Model (Done once) ---
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
-    if device == 'cuda' and not torch.cuda.is_available():
+    if args.device == 'cuda' and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested but is not available on this system.")
     if device == 'cuda':
         torch_dtype = torch.bfloat16 if cuda_supports_bf16() else torch.float16
