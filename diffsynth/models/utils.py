@@ -91,11 +91,13 @@ def unwrap_state_dict(state_dict):
     if not isinstance(state_dict, dict):
         return state_dict
     for _ in range(MAX_WRAPPER_DEPTH):
+        unwrapped = False
         for wrapper_key in WRAPPER_KEYS:
             if isinstance(state_dict.get(wrapper_key), dict):
                 state_dict = state_dict[wrapper_key]
+                unwrapped = True
                 break
-        else:
+        if not unwrapped:
             break
     return state_dict
 
@@ -106,8 +108,16 @@ def load_state_dict_from_bin(file_path, torch_dtype=None, device="cpu"):
             state_dict = torch.load(file_path, map_location=device, weights_only=True)
         else:
             state_dict = torch.load(file_path, map_location=device)
-    except (pickle.UnpicklingError, RuntimeError):
-        if WEIGHTS_ONLY_SUPPORTED:
+    except (pickle.UnpicklingError, RuntimeError) as exc:
+        should_fallback = WEIGHTS_ONLY_SUPPORTED and (
+            isinstance(exc, pickle.UnpicklingError)
+            or (
+                isinstance(exc, RuntimeError)
+                and exc.args
+                and "weights_only" in str(exc.args[0]).lower()
+            )
+        )
+        if should_fallback:
             state_dict = torch.load(file_path, map_location=device, weights_only=False)
         else:
             raise
