@@ -80,7 +80,12 @@ def load_state_dict_from_safetensors(file_path, torch_dtype=None, device="cpu"):
 
 
 def load_state_dict_from_bin(file_path, torch_dtype=None, device="cpu"):
-    state_dict = torch.load(file_path, map_location=device, weights_only=True)
+    try:
+        state_dict = torch.load(file_path, map_location=device, weights_only=True)
+    except (TypeError, RuntimeError):
+        state_dict = torch.load(file_path, map_location=device)
+    if isinstance(state_dict, dict) and isinstance(state_dict.get("state_dict"), dict):
+        state_dict = state_dict["state_dict"]
     if torch_dtype is not None:
         for i in state_dict:
             if isinstance(state_dict[i], torch.Tensor):
