@@ -1,9 +1,13 @@
-import torch, os, inspect, pickle
+import inspect
+import os
+import pickle
+import torch
 from safetensors import safe_open
 from contextlib import contextmanager
 import hashlib
 
 WEIGHTS_ONLY_SUPPORTED = "weights_only" in inspect.signature(torch.load).parameters
+MAX_WRAPPER_DEPTH = 5
 
 @contextmanager
 def init_weights_on_device(device = torch.device("meta"), include_buffers :bool = False):
@@ -88,16 +92,15 @@ def load_state_dict_from_bin(file_path, torch_dtype=None, device="cpu"):
         else:
             state_dict = torch.load(file_path, map_location=device)
     except (pickle.UnpicklingError, RuntimeError) as exc:
-        if WEIGHTS_ONLY_SUPPORTED and (
-            isinstance(exc, pickle.UnpicklingError)
-            or "weights_only" in str(exc).lower()
-        ):
+        if WEIGHTS_ONLY_SUPPORTED and isinstance(exc, pickle.UnpicklingError):
+            state_dict = torch.load(file_path, map_location=device, weights_only=False)
+        elif WEIGHTS_ONLY_SUPPORTED and isinstance(exc, RuntimeError) and "weights_only" in str(exc).lower():
             state_dict = torch.load(file_path, map_location=device, weights_only=False)
         else:
             raise exc
     if isinstance(state_dict, dict):
         wrapper_keys = ("state_dict", "model_state_dict", "model", "checkpoint")
-        for _ in range(5):
+        for _ in range(MAX_WRAPPER_DEPTH):
             for wrapper_key in wrapper_keys:
                 if isinstance(state_dict.get(wrapper_key), dict):
                     state_dict = state_dict[wrapper_key]
