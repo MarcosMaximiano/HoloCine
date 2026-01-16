@@ -8,6 +8,7 @@ import hashlib
 
 WEIGHTS_ONLY_SUPPORTED = "weights_only" in inspect.signature(torch.load).parameters
 MAX_WRAPPER_DEPTH = 5
+WRAPPER_KEYS = ("state_dict", "model_state_dict", "model", "checkpoint")
 
 @contextmanager
 def init_weights_on_device(device = torch.device("meta"), include_buffers :bool = False):
@@ -89,9 +90,8 @@ def unwrap_state_dict(state_dict):
     """Unwrap common checkpoint wrapper keys to get the underlying state dict."""
     if not isinstance(state_dict, dict):
         return state_dict
-    wrapper_keys = ("state_dict", "model_state_dict", "model", "checkpoint")
     for _ in range(MAX_WRAPPER_DEPTH):
-        for wrapper_key in wrapper_keys:
+        for wrapper_key in WRAPPER_KEYS:
             if isinstance(state_dict.get(wrapper_key), dict):
                 state_dict = state_dict[wrapper_key]
                 break
@@ -108,7 +108,8 @@ def load_state_dict_from_bin(file_path, torch_dtype=None, device="cpu"):
             state_dict = torch.load(file_path, map_location=device)
     except (pickle.UnpicklingError, RuntimeError) as exc:
         fallback_needed = WEIGHTS_ONLY_SUPPORTED and (
-            not isinstance(exc, RuntimeError) or "weights_only" in str(exc).lower()
+            isinstance(exc, pickle.UnpicklingError)
+            or (isinstance(exc, RuntimeError) and "weights_only" in str(exc).lower())
         )
         if fallback_needed:
             state_dict = torch.load(file_path, map_location=device, weights_only=False)
