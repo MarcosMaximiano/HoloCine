@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
     # --- 1. Load Model (Done once) ---
     device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
-    if args.device == 'cuda' and not torch.cuda.is_available():
+    if args.device is not None and args.device == 'cuda' and not torch.cuda.is_available():
         raise RuntimeError("CUDA was requested but is not available on this system.")
     if device == 'cuda':
         torch_dtype = torch.bfloat16 if cuda_supports_bf16() else torch.float16

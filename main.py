@@ -6,6 +6,8 @@ import firebase_admin
 from firebase_admin import storage
 
 app = Flask(__name__)
+BASE_DIR = os.path.dirname(__file__)
+DOWNLOAD_SCRIPT = os.path.join(BASE_DIR, "scripts", "download_checkpoints.py")
 CHECKPOINTS_READY = False
 CHECKPOINT_FILES = [
     "checkpoints/Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth",
@@ -23,7 +25,7 @@ def ensure_checkpoints():
         return
     missing = missing_checkpoints()
     if missing:
-        subprocess.run([sys.executable, "scripts/download_checkpoints.py", "--yes"], check=True)
+        subprocess.run([sys.executable, DOWNLOAD_SCRIPT, "--yes"], check=True)
     missing_after = missing_checkpoints()
     if missing_after:
         raise FileNotFoundError(
