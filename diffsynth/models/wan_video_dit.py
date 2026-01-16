@@ -39,10 +39,26 @@ except:
         flash_attn_varlen_func = None
 
 def validate_shot_latent_indices(cuts, total: int):
+    """Normalize and validate shot_latent_indices against the expected total length."""
     cuts = list(cuts)
     if not cuts or cuts[0] != 0 or cuts[-1] != total:
         raise ValueError(f"shot_latent_indices must start with 0 and end with {total}")
     return cuts
+
+def per_shot_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, shot_latent_indices, num_heads: int):
+    outputs = []
+    for bi, cuts in enumerate(shot_latent_indices):
+        cuts = validate_shot_latent_indices(cuts, q.shape[1])
+        shot_outputs = []
+        for a, bnd in zip(cuts[:-1], cuts[1:]):
+            q_seg = rearrange(q[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+            k_seg = rearrange(k[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+            v_seg = rearrange(v[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+            x_seg = F.scaled_dot_product_attention(q_seg, k_seg, v_seg)
+            x_seg = rearrange(x_seg, "b n s d -> b s (n d)", n=num_heads)
+            shot_outputs.append(x_seg[0])
+        outputs.append(torch.cat(shot_outputs, dim=0))
+    return torch.stack(outputs, dim=0)
 
 # def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads: int, compatibility_mode=False):
 #     if compatibility_mode:
@@ -89,19 +105,7 @@ def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads
         x = rearrange(x, "b n s d -> b s (n d)", n=num_heads)
     else:
         if shot_latent_indices is not None:
-            outputs = []
-            for bi, cuts in enumerate(shot_latent_indices):
-                cuts = validate_shot_latent_indices(cuts, q.shape[1])
-                shot_outputs = []
-                for a, bnd in zip(cuts[:-1], cuts[1:]):
-                    q_seg = rearrange(q[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
-                    k_seg = rearrange(k[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
-                    v_seg = rearrange(v[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
-                    x_seg = F.scaled_dot_product_attention(q_seg, k_seg, v_seg)
-                    x_seg = rearrange(x_seg, "b n s d -> b s (n d)", n=num_heads)
-                    shot_outputs.append(x_seg[0])
-                outputs.append(torch.cat(shot_outputs, dim=0))
-            x = torch.stack(outputs, dim=0)
+            x = per_shot_attention(q, k, v, shot_latent_indices, num_heads)
         elif compatibility_mode:
             q = rearrange(q, "b s (n d) -> b n s d", n=num_heads)
             k = rearrange(k, "b s (n d) -> b n s d", n=num_heads)
@@ -215,24 +219,7 @@ def attention_per_batch_with_shots(
     device = q.device
 
     if flash_attn_varlen_func is None:
-        outputs = []
-        for bi in range(b):
-            cuts = validate_shot_latent_indices(shot_latent_indices[bi], s_tot)
-            shot_outputs = []
-            for a, bnd in zip(cuts[:-1], cuts[1:]):
-                q_seg = q[bi:bi + 1, a:bnd, :]
-                k_seg = k[bi:bi + 1, a:bnd, :]
-                v_seg = v[bi:bi + 1, a:bnd, :]
-                out_seg = flash_attention(
-                    q=q_seg,
-                    k=k_seg,
-                    v=v_seg,
-                    num_heads=num_heads,
-                    compatibility_mode=True,
-                )
-                shot_outputs.append(out_seg[0])
-            outputs.append(torch.cat(shot_outputs, dim=0))
-        return torch.stack(outputs, dim=0)
+        return per_shot_attention(q, k, v, shot_latent_indices, num_heads)
 
     q = rearrange(q, "b s (n d) -> b n s d", n=num_heads).contiguous()
     k = rearrange(k, "b s (n d) -> b n s d", n=num_heads).contiguous()
