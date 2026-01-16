@@ -45,7 +45,14 @@ def validate_shot_latent_indices(cuts, total: int):
         raise ValueError(f"shot_latent_indices must start with 0 and end with {total}")
     return cuts
 
-def per_shot_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, shot_latent_indices, num_heads: int):
+def per_shot_attention(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    shot_latent_indices: Sequence[Sequence[int]],
+    num_heads: int,
+) -> torch.Tensor:
+    """Compute per-shot attention for tensors shaped [batch, seq, heads*dim]."""
     outputs = []
     for bi, cuts in enumerate(shot_latent_indices):
         cuts = validate_shot_latent_indices(cuts, q.shape[1])
