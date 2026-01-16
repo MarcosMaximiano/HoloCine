@@ -1,7 +1,14 @@
-import torch, os
+import inspect
+import os
+import pickle
+import torch
 from safetensors import safe_open
 from contextlib import contextmanager
 import hashlib
+
+WEIGHTS_ONLY_SUPPORTED = "weights_only" in inspect.signature(torch.load).parameters
+MAX_WRAPPER_DEPTH = 5
+WRAPPER_KEYS = ("state_dict", "model_state_dict", "model", "checkpoint")
 
 @contextmanager
 def init_weights_on_device(device = torch.device("meta"), include_buffers :bool = False):
@@ -79,8 +86,42 @@ def load_state_dict_from_safetensors(file_path, torch_dtype=None, device="cpu"):
     return state_dict
 
 
+def unwrap_state_dict(state_dict):
+    """Unwrap common checkpoint wrapper keys to get the underlying state dict."""
+    if not isinstance(state_dict, dict):
+        return state_dict
+    for _ in range(MAX_WRAPPER_DEPTH):
+        unwrapped = False
+        for wrapper_key in WRAPPER_KEYS:
+            if isinstance(state_dict.get(wrapper_key), dict):
+                state_dict = state_dict[wrapper_key]
+                unwrapped = True
+                break
+        if not unwrapped:
+            break
+    return state_dict
+
+
 def load_state_dict_from_bin(file_path, torch_dtype=None, device="cpu"):
-    state_dict = torch.load(file_path, map_location=device, weights_only=True)
+    try:
+        if WEIGHTS_ONLY_SUPPORTED:
+            state_dict = torch.load(file_path, map_location=device, weights_only=True)
+        else:
+            state_dict = torch.load(file_path, map_location=device)
+    except (pickle.UnpicklingError, RuntimeError) as exc:
+        should_fallback = WEIGHTS_ONLY_SUPPORTED and (
+            isinstance(exc, pickle.UnpicklingError)
+            or (
+                isinstance(exc, RuntimeError)
+                and exc.args
+                and "weights_only" in str(exc.args[0]).lower()
+            )
+        )
+        if should_fallback:
+            state_dict = torch.load(file_path, map_location=device, weights_only=False)
+        else:
+            raise
+    state_dict = unwrap_state_dict(state_dict)
     if torch_dtype is not None:
         for i in state_dict:
             if isinstance(state_dict[i], torch.Tensor):

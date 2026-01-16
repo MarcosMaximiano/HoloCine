@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-from typing import Tuple, Optional
+from typing import List, Optional, Sequence, Tuple
 from einops import rearrange
 from .utils import hash_state_dict_keys
 from .wan_video_camera_controller import SimpleAdapter
@@ -24,8 +24,6 @@ try:
 except ModuleNotFoundError:
     SAGE_ATTN_AVAILABLE = False
 
-from einops import rearrange
-from typing import List, Sequence, Optional
 print("FLASH_ATTN_3_AVAILABLE ",FLASH_ATTN_3_AVAILABLE)
 print("FLASH_ATTN_2_AVAILABLE",FLASH_ATTN_2_AVAILABLE)
 try:
@@ -37,6 +35,35 @@ except:
         from flash_attn.flash_attn_interface import flash_attn_varlen_func
     except Exception as e:
         flash_attn_varlen_func = None
+
+def validate_shot_latent_indices(cuts: Sequence[int], total: int):
+    """Normalize and validate shot_latent_indices against the expected total length."""
+    cuts = list(cuts)
+    if not cuts or cuts[0] != 0 or cuts[-1] != total:
+        raise ValueError(f"shot_latent_indices must start with 0 and end with {total}")
+    return cuts
+
+def per_shot_attention(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    shot_latent_indices: Sequence[Sequence[int]],
+    num_heads: int,
+) -> torch.Tensor:
+    """Compute per-shot attention for tensors shaped [batch, seq, heads*dim]."""
+    outputs = []
+    for bi, cuts in enumerate(shot_latent_indices):
+        cuts = validate_shot_latent_indices(cuts, q.shape[1])
+        shot_outputs = []
+        for a, bnd in zip(cuts[:-1], cuts[1:]):
+            q_seg = rearrange(q[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+            k_seg = rearrange(k[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+            v_seg = rearrange(v[bi:bi + 1, a:bnd, :], "b s (n d) -> b n s d", n=num_heads)
+            x_seg = F.scaled_dot_product_attention(q_seg, k_seg, v_seg)
+            x_seg = rearrange(x_seg, "b n s d -> b s (n d)", n=num_heads)
+            shot_outputs.append(x_seg[0])
+        outputs.append(torch.cat(shot_outputs, dim=0))
+    return torch.stack(outputs, dim=0)
 
 # def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads: int, compatibility_mode=False):
 #     if compatibility_mode:
@@ -74,7 +101,6 @@ except:
 #     return x
 
 def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads: int, compatibility_mode=False,attn_mask=None,shot_latent_indices=None):
-
     if attn_mask is not None:
 
         q = rearrange(q, "b s (n d) -> b n s d", n=num_heads)
@@ -84,14 +110,7 @@ def flash_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, num_heads
         x = rearrange(x, "b n s d -> b s (n d)", n=num_heads)
     else:
         if shot_latent_indices is not None:
-        
-            q = rearrange(q, "b s (n d) -> b n s d", n=num_heads)
-            k = rearrange(k, "b s (n d) -> b n s d", n=num_heads)
-            v = rearrange(v, "b s (n d) -> b n s d", n=num_heads)
-          
-
-         
-            x = rearrange(x, "b n s d -> b s (n d)", n=num_heads)
+            x = per_shot_attention(q, k, v, shot_latent_indices, num_heads)
         elif compatibility_mode:
             q = rearrange(q, "b s (n d) -> b n s d", n=num_heads)
             k = rearrange(k, "b s (n d) -> b n s d", n=num_heads)
@@ -204,6 +223,8 @@ def attention_per_batch_with_shots(
     dtype = q.dtype
     device = q.device
 
+    if flash_attn_varlen_func is None:
+        return per_shot_attention(q, k, v, shot_latent_indices, num_heads)
 
     q = rearrange(q, "b s (n d) -> b n s d", n=num_heads).contiguous()
     k = rearrange(k, "b s (n d) -> b n s d", n=num_heads).contiguous()
@@ -211,13 +232,9 @@ def attention_per_batch_with_shots(
 
     outputs = []
 
-    if flash_attn_varlen_func is None:
-        raise RuntimeError("flash_attn_varlen_func not available. Please install flash-attn v2+.")
-
     for bi in range(b):
 
-        cuts = list(shot_latent_indices[bi])
-        assert cuts[0] == 0 and cuts[-1] == s_tot, "shot_latent_indices must start with 0 and end with s_tot"
+        cuts = validate_shot_latent_indices(shot_latent_indices[bi], s_tot)
 
         Q_shots, K_shots, V_shots = [], [], []
         N_list = []

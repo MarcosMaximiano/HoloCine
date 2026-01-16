@@ -1,3 +1,4 @@
+import argparse
 import torch
 import math
 from diffsynth import save_video
@@ -60,6 +61,14 @@ def prepare_multishot_inputs(
         "shot_cut_frames": processed_shot_cuts,
         "num_frames": processed_total_frames
     }
+
+def cuda_supports_bf16() -> bool:
+    if not torch.cuda.is_available():
+        return False
+    if hasattr(torch.cuda, "is_bf16_supported"):
+        return torch.cuda.is_bf16_supported()
+    major, _ = torch.cuda.get_device_capability()
+    return major >= 8
 
 # ---------------------------------------------------
 # 
@@ -183,64 +192,88 @@ def run_inference(
 #
 # ---------------------------------------------------
 
-# --- 1. Load Model (Done once) ---
-device = 'cuda'
-pipe = WanVideoHoloCinePipeline.from_pretrained(
-    torch_dtype=torch.bfloat16,
-    device=device,
-    model_configs=[
-        ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth", offload_device="cpu"),
-        ModelConfig(path="./checkpoints/HoloCine_dit/full/full_high_noise.safetensors", offload_device="cpu"),
-        ModelConfig(path="./checkpoints/HoloCine_dit/full/full_low_noise.safetensors",  offload_device="cpu"),
-        ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
-    ],
-)
-pipe.enable_vram_management()
-pipe.to(device)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Run HoloCine inference.")
+    parser.add_argument("--prompt", type=str, help="Prompt for video generation.")
+    parser.add_argument("--output", type=str, default="output.mp4", help="Output video path.")
+    parser.add_argument("--device", choices=["cpu", "cuda"], help="Force device selection.")
+    parser.add_argument("--num-frames", type=int, default=241, help="Total frames for prompt input.")
+    args = parser.parse_args()
 
-# --- 2. Define Common Parameters ---
-scene_negative_prompt = "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
+    # --- 1. Load Model (Done once) ---
+    device = args.device or ('cuda' if torch.cuda.is_available() else 'cpu')
+    if args.device is not None and args.device == 'cuda' and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available on this system.")
+    if device == 'cuda':
+        torch_dtype = torch.bfloat16 if cuda_supports_bf16() else torch.float16
+    else:
+        torch_dtype = torch.float32
+    pipe = WanVideoHoloCinePipeline.from_pretrained(
+        torch_dtype=torch_dtype,
+        device=device,
+        model_configs=[
+            ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth", offload_device="cpu"),
+            ModelConfig(path="./checkpoints/HoloCine_dit/full/full_high_noise.safetensors", offload_device="cpu"),
+            ModelConfig(path="./checkpoints/HoloCine_dit/full/full_low_noise.safetensors",  offload_device="cpu"),
+            ModelConfig(path="./checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth", offload_device="cpu"),
+        ],
+    )
+    if device == 'cuda':
+        pipe.enable_vram_management()
+    pipe.to(device)
 
-
-# ===================================================================
-#                ✨ How to Use ✨
-# ===================================================================
-
-# --- Example 1: Call using Structured Input (Choice 1) ---
-# (Auto-calculates shot cuts)
-print("\n--- Running Example 1 (Structured Input) ---")
-run_inference(
-    pipe=pipe,
-    negative_prompt=scene_negative_prompt,
-    output_path="video1.mp4",
-    
-    # Choice 1 inputs
-    global_caption="The scene is set in a lavish, 1920s Art Deco ballroom during a masquerade party. [character1] is a mysterious woman with a sleek bob, wearing a sequined silver dress and an ornate feather mask. [character2] is a dapper gentleman in a black tuxedo, his face half-hidden by a simple black domino mask. The environment is filled with champagne fountains, a live jazz band, and dancing couples in extravagant costumes. This scene contains 5 shots.",
-    shot_captions=[
-        "Medium shot of [character1] standing by a pillar, observing the crowd, a champagne flute in her hand.",
-        "Close-up of [character2] watching her from across the room, a look of intrigue on his visible features.",
-        "Medium shot as [character2] navigates the crowd and approaches [character1], offering a polite bow.",
-        "Close-up on [character1]'s eyes through her mask, as they crinkle in a subtle, amused smile.",
-        "A stylish medium two-shot of them standing together, the swirling party out of focus behind them, as they begin to converse."
-
-    ],
-    num_frames=241
-)
+    # --- 2. Define Common Parameters ---
+    scene_negative_prompt = "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
 
 
-# --- Example 2: Call using Raw String Input (Choice 2) ---
-# (Uses your original prompt format)
-print("\n--- Running Example 2 (Raw String Input) ---")
-run_inference(
-    pipe=pipe,
-    negative_prompt=scene_negative_prompt,
-    output_path="video2.mp4",
-    
-    # Choice 2 inputs
-    prompt="[global caption] The scene features a young painter, [character1], with paint-smudged cheeks and intense, focused eyes. Her hair is tied up messily. The setting is a bright, sun-drenched art studio with large windows, canvases, and the smell of oil paint. This scene contains 6 shots. [per shot caption] Medium shot of [character1] standing back from a large canvas, brush in hand, critically observing her work. [shot cut] Close-up of her hand holding the brush, dabbing it thoughtfully onto a palette of vibrant colors. [shot cut] Extreme close-up of her eyes, narrowed in concentration as she studies the canvas. [shot cut] Close-up on the canvas, showing a detailed, textured brushstroke being slowly applied. [shot cut] Medium close-up of [character1]'s face, a small, satisfied smile appears as she finds the right color. [shot cut] Over-the-shoulder shot showing her add a final, delicate highlight to the painting.",
-    num_frames=241,  
-    shot_cut_frames=[37, 73, 113, 169, 205]
-)
+    # ===================================================================
+    #                ✨ How to Use ✨
+    # ===================================================================
+    if args.prompt:
+        print("\n--- Running Prompt Input ---")
+        run_inference(
+            pipe=pipe,
+            negative_prompt=scene_negative_prompt,
+            output_path=args.output,
+            prompt=args.prompt,
+            num_frames=args.num_frames,
+        )
+    else:
+        # --- Example 1: Call using Structured Input (Choice 1) ---
+        # (Auto-calculates shot cuts)
+        print("\n--- Running Example 1 (Structured Input) ---")
+        run_inference(
+            pipe=pipe,
+            negative_prompt=scene_negative_prompt,
+            output_path="video1.mp4",
+            
+            # Choice 1 inputs
+            global_caption="The scene is set in a lavish, 1920s Art Deco ballroom during a masquerade party. [character1] is a mysterious woman with a sleek bob, wearing a sequined silver dress and an ornate feather mask. [character2] is a dapper gentleman in a black tuxedo, his face half-hidden by a simple black domino mask. The environment is filled with champagne fountains, a live jazz band, and dancing couples in extravagant costumes. This scene contains 5 shots.",
+            shot_captions=[
+                "Medium shot of [character1] standing by a pillar, observing the crowd, a champagne flute in her hand.",
+                "Close-up of [character2] watching her from across the room, a look of intrigue on his visible features.",
+                "Medium shot as [character2] navigates the crowd and approaches [character1], offering a polite bow.",
+                "Close-up on [character1]'s eyes through her mask, as they crinkle in a subtle, amused smile.",
+                "A stylish medium two-shot of them standing together, the swirling party out of focus behind them, as they begin to converse."
+
+            ],
+            num_frames=241
+        )
+
+
+        # --- Example 2: Call using Raw String Input (Choice 2) ---
+        # (Uses your original prompt format)
+        print("\n--- Running Example 2 (Raw String Input) ---")
+        run_inference(
+            pipe=pipe,
+            negative_prompt=scene_negative_prompt,
+            output_path="video2.mp4",
+            
+            # Choice 2 inputs
+            prompt="[global caption] The scene features a young painter, [character1], with paint-smudged cheeks and intense, focused eyes. Her hair is tied up messily. The setting is a bright, sun-drenched art studio with large windows, canvases, and the smell of oil paint. This scene contains 6 shots. [per shot caption] Medium shot of [character1] standing back from a large canvas, brush in hand, critically observing her work. [shot cut] Close-up of her hand holding the brush, dabbing it thoughtfully onto a palette of vibrant colors. [shot cut] Extreme close-up of her eyes, narrowed in concentration as she studies the canvas. [shot cut] Close-up on the canvas, showing a detailed, textured brushstroke being slowly applied. [shot cut] Medium close-up of [character1]'s face, a small, satisfied smile appears as she finds the right color. [shot cut] Over-the-shoulder shot showing her add a final, delicate highlight to the painting.",
+            num_frames=241,  
+            shot_cut_frames=[37, 73, 113, 169, 205]
+        )
 
 
 # # we provide more samples for test, you can uncomment them and have a try.
@@ -280,5 +313,3 @@ run_inference(
 #     num_frames=241,  
 #     shot_cut_frames=[49, 93, 137, 189],
 # )
-
-

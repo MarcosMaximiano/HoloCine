@@ -1,10 +1,37 @@
 import os
 import subprocess
+import sys
 from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import storage
 
 app = Flask(__name__)
+BASE_DIR = os.path.dirname(__file__)
+DOWNLOAD_SCRIPT = os.path.join(BASE_DIR, "scripts", "download_checkpoints.py")
+CHECKPOINTS_READY = False
+CHECKPOINT_FILES = [
+    "checkpoints/Wan2.2-T2V-A14B/models_t5_umt5-xxl-enc-bf16.pth",
+    "checkpoints/Wan2.2-T2V-A14B/Wan2.1_VAE.pth",
+    "checkpoints/HoloCine_dit/full/full_high_noise.safetensors",
+    "checkpoints/HoloCine_dit/full/full_low_noise.safetensors",
+]
+
+def missing_checkpoints():
+    return [path for path in CHECKPOINT_FILES if not os.path.exists(path)]
+
+def ensure_checkpoints():
+    global CHECKPOINTS_READY
+    if CHECKPOINTS_READY:
+        return
+    missing = missing_checkpoints()
+    if missing:
+        subprocess.run([sys.executable, DOWNLOAD_SCRIPT, "--yes"], check=True)
+    missing_after = missing_checkpoints()
+    if missing_after:
+        raise FileNotFoundError(
+            f"Missing checkpoint files after download: {', '.join(missing_after)}"
+        )
+    CHECKPOINTS_READY = True
 
 # Healthcheck endpoint
 @app.route("/healthz", methods=["GET"])
@@ -20,9 +47,10 @@ def generate_video():
         return jsonify({"error": "prompt é obrigatório"}), 400
 
     try:
+        ensure_checkpoints()
         output_file = "output.mp4"
         cmd = [
-            "python3", "HoloCine_inference_full_attention.py",
+            sys.executable, "HoloCine_inference_full_attention.py",
             "--prompt", prompt,
             "--output", output_file
         ]
