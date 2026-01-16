@@ -217,8 +217,7 @@ def attention_per_batch_with_shots(
     if flash_attn_varlen_func is None:
         outputs = []
         for bi in range(b):
-            cuts = list(shot_latent_indices[bi])
-            assert cuts[0] == 0 and cuts[-1] == s_tot, "shot_latent_indices must start with 0 and end with s_tot"
+            cuts = validate_shot_latent_indices(shot_latent_indices[bi], s_tot)
             shot_outputs = []
             for a, bnd in zip(cuts[:-1], cuts[1:]):
                 q_seg = q[bi:bi + 1, a:bnd, :]
