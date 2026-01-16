@@ -197,6 +197,7 @@ if __name__ == "__main__":
     parser.add_argument("--prompt", type=str, help="Prompt for video generation.")
     parser.add_argument("--output", type=str, default="output.mp4", help="Output video path.")
     parser.add_argument("--device", choices=["cpu", "cuda"], help="Force device selection.")
+    parser.add_argument("--num-frames", type=int, default=241, help="Total frames for prompt input.")
     args = parser.parse_args()
 
     # --- 1. Load Model (Done once) ---
@@ -235,6 +236,7 @@ if __name__ == "__main__":
             negative_prompt=scene_negative_prompt,
             output_path=args.output,
             prompt=args.prompt,
+            num_frames=args.num_frames,
         )
     else:
         # --- Example 1: Call using Structured Input (Choice 1) ---

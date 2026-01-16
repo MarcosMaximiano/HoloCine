@@ -24,10 +24,10 @@ def ensure_checkpoints():
     missing = missing_checkpoints()
     if missing:
         subprocess.run([sys.executable, "scripts/download_checkpoints.py", "--yes"], check=True)
-    missing = missing_checkpoints()
-    if missing:
+    missing_after = missing_checkpoints()
+    if missing_after:
         raise FileNotFoundError(
-            f"Missing checkpoint files after download: {', '.join(missing)}"
+            f"Missing checkpoint files after download: {', '.join(missing_after)}"
         )
     CHECKPOINTS_READY = True
 
