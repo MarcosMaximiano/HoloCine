@@ -25,13 +25,13 @@ snapshot_download(
     ],
 )
 
-# Baixar HoloCine DIT (full)
+# Baixar HoloCine DIT (full) - apenas high_noise para economizar espaço
 snapshot_download(
     repo_id="hlwang06/HoloCine",
     local_dir="checkpoints",
     allow_patterns=[
         "HoloCine_dit/full/full_high_noise.safetensors",
-        "HoloCine_dit/full/full_low_noise.safetensors",
+        # "HoloCine_dit/full/full_low_noise.safetensors",  # Comentado para economizar ~57GB
     ],
 )
 
